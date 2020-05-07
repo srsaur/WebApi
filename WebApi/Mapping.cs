@@ -13,7 +13,10 @@ namespace WebApi
         public Mapping()
         {
             CreateMap<SignUp, AppUser>().ForMember(e => e.UserName, e => e.MapFrom(x => x.Email));
-                
+            CreateMap<MessageDto, Message>().ReverseMap();
+            CreateMap<Message, MessageDto>().ForMember(e => e.CreatedOn, e => e.MapFrom(x => x.MessageOn));
+
+            CreateMap<FriendRequestInputDto, FriendRequest>();               
         }
     }
 }

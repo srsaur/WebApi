@@ -1,7 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
 using WebApi.Models;
 using AutoMapper;
 using Microsoft.AspNetCore.Builder;
@@ -11,14 +8,14 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
 using Microsoft.OpenApi.Models;
-using WebApi.Models;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using AngularASPNETCore2WebApiAuth.Auth;
+using WebApi.IServices;
+using WebApi.Services;
+using System.Threading.Tasks;
 
 namespace WebApi
 {
@@ -36,9 +33,19 @@ namespace WebApi
         {
             services.AddAutoMapper(AppDomain.CurrentDomain.GetAssemblies());
 
-            services.AddDbContext<AppDbContext>(e => e.UseSqlServer(Configuration.GetConnectionString("default")));
+            services.AddDbContext<AppDbContext>(e => e.UseSqlite("Data Source=local.db"));
+            //services.AddDbContext<AppDbContext>(e => e.UseSqlServer(Configuration.GetConnectionString("default")));
+
+
             services.AddDefaultIdentity<AppUser>()
                 .AddEntityFrameworkStores<AppDbContext>();
+
+            services.AddCors(e => e.AddPolicy("All",
+                 p => p.AllowAnyMethod()
+                       .AllowAnyHeader()
+                       .WithOrigins("http://localhost:4200","http://192.168.43.247:94")
+                       .AllowCredentials()
+                 ));
 
             var _signingKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes("123456789ABCDEFGHIJ"));
 
@@ -84,14 +91,38 @@ namespace WebApi
                 jwtConfigration.ClaimsIssuer = jwtAppSettingOptions[nameof(JwtIssuerOptions.Issuer)];
                 jwtConfigration.TokenValidationParameters = tokenValidationParameters;
                 jwtConfigration.SaveToken = true;
+                jwtConfigration.Events = new JwtBearerEvents()
+                {
+                    OnMessageReceived = (context) =>
+                    {
+                        var accessToken = context.Request.Query["access_Token"];
+                        var path = context.Request.Path;
+                        if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/chatApp"))
+                        {
+                            context.Token = accessToken;
+                        }
+                        return Task.CompletedTask;
+                    }
+                };
             });
 
-            services.AddAuthorization(e=>e.AddPolicy("SubPolicy",cp=>cp.RequireClaim("iss")));
+            services.AddAuthorization(e => e.AddPolicy("SubPolicy", cp => cp.RequireClaim("iss")));
 
             services.AddTransient<IJwtFactory, JwtFactory>();
+            services.AddScoped<IConnectionManager, ConnectionManager>();
+
+            services.AddScoped<INotificationHelper, NotificationHelper>();
+            services.AddTransient<IMessageService, MessageService>();
+
+            services.Configure<IISOptions>(option =>
+            {
+
+            });
+
+            services.AddTransient<IFriendRequestService, FriendRequestService>();
+            services.AddSignalR();
 
             services.AddMvc().SetCompatibilityVersion(CompatibilityVersion.Version_2_2);
-
             services.AddSwaggerGen(c =>
             {
                 c.SwaggerDoc("v1", new OpenApiInfo { Title = "My API", Version = "v1" });
@@ -101,20 +132,25 @@ namespace WebApi
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
         public void Configure(IApplicationBuilder app, IHostingEnvironment env)
         {
-            if (env.IsDevelopment())
-            {
-                app.UseDeveloperExceptionPage();
-            }
+            app.UseDeveloperExceptionPage();
+            app.UseMiddleware<ExceptionMiddleware>();
 
             app.UseSwagger();
-
+            app.UseDefaultFiles();
+            app.UseStaticFiles();
             app.UseAuthentication();
 
-            // Enable middleware to serve swagger-ui (HTML, JS, CSS, etc.),
-            // specifying the Swagger JSON endpoint.
             app.UseSwaggerUI(c =>
             {
                 c.SwaggerEndpoint("/swagger/v1/swagger.json", "My API V1");
+            });
+
+            app.UseForwardedHeaders();
+
+            app.UseCors("All");
+
+            app.UseSignalR(e => {
+                e.MapHub<ChatHub>("/chatApp");
             });
 
             app.UseMvc();

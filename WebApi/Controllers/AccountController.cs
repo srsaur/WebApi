@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Security.Claims;
+using System.Text;
 using System.Threading.Tasks;
 using AngularASPNETCore2WebApiAuth.Auth;
 using AutoMapper;
@@ -13,9 +14,8 @@ using WebApi.Models;
 
 namespace WebApi.Controllers
 {
-    [Route("api/[controller]")]
-    [ApiController]
-    public class AccountController : ControllerBase
+    [Route("api/account")]
+    public class AccountController : BaseController
     {
         private readonly IMapper mapper;
         private readonly UserManager<AppUser> userManager;
@@ -28,50 +28,35 @@ namespace WebApi.Controllers
             this._jwtFactory = jwtFactory;
         }
         [HttpPost]
-        public async Task<IActionResult> SignUp([FromBody] SignUp signUp)
+        public async Task<IActionResult> SignUp([FromBody]SignUp signUp)
         {
             var user = mapper.Map<AppUser>(signUp);
-
-            if (!ModelState.IsValid)
-            {
-                return BadRequest(ModelState);
-            }
-
             var result = await userManager.CreateAsync(user, signUp.Password);
 
+            StringBuilder sb = new StringBuilder();
             foreach (var item in result.Errors)
             {
-                ModelState.AddModelError(item.Code, item.Description);
+                sb.AppendLine($"{item.Code}: {item.Description}\n");
             }
 
-            if (!result.Succeeded) { return new BadRequestObjectResult(ModelState); }
+            if (!result.Succeeded) { throw new Exception(sb.ToString()); }
 
             return Ok("Account Created");
         }
 
         [HttpPost("SignIn")]
-        public async Task<IActionResult> SingnIn([FromBody] LogIn logIn)
-        {
-            if (!ModelState.IsValid)
-            {
-                return BadRequest(ModelState);
-            }
-            var user =await userManager.FindByEmailAsync(logIn.Email);
-            
+        public async Task<string> SingnIn([FromBody] LogIn logIn)
+        {    
+           var user =await userManager.FindByEmailAsync(logIn.Email);
            if(await userManager.CheckPasswordAsync(user, logIn.Password))
             {
-              return Ok(await _jwtFactory.GenerateEncodedToken(user.Email));
+              return  await _jwtFactory.GenerateEncodedToken(user);
             }
            else
             {
-                ModelState.AddModelError("login_failure", "Invalid username or password.");
-                return BadRequest(ModelState);
+                throw new Exception("Invalid UserName");
             }
-
         }
-
-       
-
 
     }
 }

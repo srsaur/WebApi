@@ -5,7 +5,7 @@ using System.Security.Principal;
 using System.Threading.Tasks;
 using WebApi.Models;
 using Microsoft.Extensions.Options;
- 
+
 
 namespace AngularASPNETCore2WebApiAuth.Auth
 {
@@ -19,12 +19,14 @@ namespace AngularASPNETCore2WebApiAuth.Auth
             ThrowIfInvalidOptions(_jwtOptions);
         }
 
-        public async Task<string> GenerateEncodedToken(string userName)
+        public async Task<string> GenerateEncodedToken(AppUser user)
         {
             var claims = new[]
          {
-                 new Claim(JwtRegisteredClaimNames.Sub, userName),
+                new Claim(JwtRegisteredClaimNames.Sid,user.Id),
                  new Claim(JwtRegisteredClaimNames.Jti, await _jwtOptions.JtiGenerator()),
+                 new Claim("EmailId", user.UserName),
+                 new Claim("image",user.ImagePath==null?"":user.ImagePath),
                  new Claim(JwtRegisteredClaimNames.Iat, ToUnixEpochDate(_jwtOptions.IssuedAt).ToString(), ClaimValueTypes.Integer64)
              };
 
