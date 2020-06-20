@@ -23,5 +23,7 @@ namespace WebApi
         public virtual DbSet<RelationKeys> RelationKeys { get; set; }
         public virtual DbSet<Message> Messages{ get; set; }
         public virtual DbSet<FriendRequest> FriendRequests { get; set; }
+
+        public virtual DbSet<Notificaton> Notificatons { get; set; }
     }
 }

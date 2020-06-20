@@ -2,6 +2,7 @@
 using AutoMapper.QueryableExtensions;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
+using Notification.INotifierServices;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -17,12 +18,14 @@ namespace WebApi.Services
         private readonly AppDbContext appDbContext;
         private readonly IMapper _mapper;
         private readonly INotificationHelper _hubContext;
+        private readonly INotifier _notifier;
 
-        public MessageService(AppDbContext appDb,IMapper mapper, INotificationHelper hubContext)
+        public MessageService(AppDbContext appDb,IMapper mapper, INotificationHelper hubContext,INotifier notifier)
         {
             appDbContext = appDb;
             _mapper = mapper;
             _hubContext = hubContext;
+            _notifier = notifier;
         }
         public async Task<IEnumerable<MessageDto>> GetMessages(string fromUser,string toUser)
         {
@@ -40,6 +43,7 @@ namespace WebApi.Services
             await appDbContext.SaveChangesAsync();
             await _hubContext.SendNotificationParaller(message.ToUserId, "GetNotify", _mapper.Map<MessageDto>(message));
             await _hubContext.SendNotificationParaller(message.FromUserId, "GetNotify", _mapper.Map<MessageDto>(message));
+            await _notifier.SendNotificationAsync(message.ToUserId, null);
         }
 
         public async Task<dynamic> GetRecentChat(string fromUser)

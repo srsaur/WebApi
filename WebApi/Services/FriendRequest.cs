@@ -1,5 +1,6 @@
 ﻿
 using AutoMapper;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using System.Collections.Generic;
 using System.Linq;
@@ -15,12 +16,16 @@ namespace WebApi.Services
         private readonly AppDbContext _dbContext;
         private readonly IMapper _mapper;
         private readonly IMessageService messageService;
+        private readonly INotificationService _notificationService;
+        private readonly INotificationHelper helper;
 
-        public FriendRequestService(AppDbContext dbContext, IMapper mapper,IMessageService messageService)
+        public FriendRequestService(AppDbContext dbContext, IMapper mapper,IMessageService messageService,INotificationService notificationService,INotificationHelper helper)
         {
             _dbContext = dbContext;
             _mapper = mapper;
             this.messageService = messageService;
+            this._notificationService = notificationService;
+            this.helper = helper;
         }
 
         public async Task SendRequest(FriendRequestInputDto requestInputDto)
@@ -32,7 +37,10 @@ namespace WebApi.Services
             var request = _mapper.Map<FriendRequest>(requestInputDto);
             await _dbContext.AddAsync(request);
             await _dbContext.SaveChangesAsync();
-
+           await _notificationService.InsertNotification(new NotificationDto{
+                UserId=request.RequestedToId,
+                Message=$"you got new FriendRequest"
+            });
         }
 
         public async Task AcceptFriendRequest(string toUser, string fromUser)
@@ -42,6 +50,12 @@ namespace WebApi.Services
             {
                 request.IsAccepted = true;
                 await _dbContext.SaveChangesAsync();
+            
+                await _notificationService.InsertNotification(new NotificationDto{
+                    Message="Friend Request Accepted",
+                    UserId=toUser
+                });
+
                 await messageService.SendMessage(new MessageDto
                 {
                     FromUserId = fromUser,
@@ -49,6 +63,8 @@ namespace WebApi.Services
                     Text
                  = "Hello"
                 });
+            
+              await helper.SendNotificationParaller(toUser,"updateOnlineUser",null);
             }
             else
             {

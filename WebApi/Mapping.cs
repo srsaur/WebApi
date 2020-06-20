@@ -16,7 +16,12 @@ namespace WebApi
             CreateMap<MessageDto, Message>().ReverseMap();
             CreateMap<Message, MessageDto>().ForMember(e => e.CreatedOn, e => e.MapFrom(x => x.MessageOn));
 
-            CreateMap<FriendRequestInputDto, FriendRequest>();               
+            CreateMap<FriendRequestInputDto, FriendRequest>();   
+
+            CreateMap<NotificationDto,Notificaton>()
+            .ForMember(e=>e.CreatedData,e=>e.Ignore());
+
+            CreateMap<Notificaton,NotificationDto>();
         }
     }
 }

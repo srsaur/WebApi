@@ -16,6 +16,7 @@ using AngularASPNETCore2WebApiAuth.Auth;
 using WebApi.IServices;
 using WebApi.Services;
 using System.Threading.Tasks;
+using Notification;
 
 namespace WebApi
 {
@@ -33,9 +34,9 @@ namespace WebApi
         {
             services.AddAutoMapper(AppDomain.CurrentDomain.GetAssemblies());
 
-            services.AddDbContext<AppDbContext>(e => e.UseSqlite("Data Source=local.db"));
-            //services.AddDbContext<AppDbContext>(e => e.UseSqlServer(Configuration.GetConnectionString("default")));
-
+            //services.AddDbContext<AppDbContext>(e => e.UseSqlite("Data Source=local.db"));
+            services.AddDbContext<AppDbContext>(e => e.UseSqlServer(Configuration.GetConnectionString("default")));
+            services.AddNotification(e => e.UseSqlite("data source=notify.db"));
 
             services.AddDefaultIdentity<AppUser>()
                 .AddEntityFrameworkStores<AppDbContext>();
@@ -113,11 +114,7 @@ namespace WebApi
 
             services.AddScoped<INotificationHelper, NotificationHelper>();
             services.AddTransient<IMessageService, MessageService>();
-
-            services.Configure<IISOptions>(option =>
-            {
-
-            });
+            services.AddTransient<INotificationService,NotificationService>();
 
             services.AddTransient<IFriendRequestService, FriendRequestService>();
             services.AddSignalR();
@@ -152,6 +149,7 @@ namespace WebApi
             app.UseSignalR(e => {
                 e.MapHub<ChatHub>("/chatApp");
             });
+            app.UseNotification();
 
             app.UseMvc();
         }
